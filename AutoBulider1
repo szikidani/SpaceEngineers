@@ -1,0 +1,37 @@
+IMyBlockGroup blockGroup;
+
+public Program()
+{
+    blockGroup = GridTerminalSystem.GetBlockGroupWithName("AB_Pistons") as IMyBlockGroup;
+}
+
+public void Save()
+{
+}
+
+public void Main(string argument, UpdateType updateSource)
+{
+    float v = 0.0f;
+    switch (argument.ToUpper())
+    {
+        case "MIN":
+            v = -0.5f;
+            break;
+        case "MAX":
+            v = 0.5f;
+            break;
+        case "SLOW":
+            v = -0.02f;
+            break;
+        default:
+            break;
+
+    }
+    List<IMyFunctionalBlock> lista = new List<IMyFunctionalBlock>();
+    blockGroup.GetBlocksOfType(lista);
+    for (int i = 0; i < lista.Count; i++)
+    {
+        IMyPistonBase tmp = lista[i] as IMyPistonBase;
+        tmp.Velocity = v;
+    }
+}
