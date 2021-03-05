@@ -22,148 +22,239 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
-        // This file contains your actual script.
-        //
-        // You can either keep all your code here, or you can create separate
-        // code files to make your program easier to navigate while coding.
-        //
-        // In order to add a new utility class, right-click on your project, 
-        // select 'New' then 'Add Item...'. Now find the 'Space Engineers'
-        // category under 'Visual C# Items' on the left hand side, and select
-        // 'Utility Class' in the main area. Name it in the box below, and
-        // press OK. This utility class will be merged in with your code when
-        // deploying your final script.
-        //
-        // You can also simply create a new utility class manually, you don't
-        // have to use the template if you don't want to. Just do so the first
-        // time to see what a utility class looks like.
-        // 
-        // Go to:
-        // https://github.com/malware-dev/MDK-SE/wiki/Quick-Introduction-to-Space-Engineers-Ingame-Scripts
-        //
-        // to learn more about ingame scripts.
-
         //SETTINGS-START
-        String BatteryGroupName = "Battery_Group_Name";//Battery
-        String ReactorGroupName = "Reactor_Group_Name";//Reactor
-        String GeneratorGroupName = "Generator_Group_Name";//O2/H2 Generator
+        String BatteryGroupName = "BÁZIS - Akkupakk";//Batteries
+        //String ReactorGroupName = "";//Reactors
+        String h2ReactorGroupName = "BÁZIS_H2_Reactors";//H2 Engines(Reactors)
+        String h2TanksName = "BÁZIS_H2_Tanks";//H2 Tanks
+        String GasGeneratorGroupName = "BÁZIS_GasGens";//Gas Generators O2 + H2
 
-        float MAX = 90.0f;//90%
-        float MIN = 20.0f;//20%
-                          //SETTINGS-END
+        double H2MinPercent = 0.25f;//15%
+        double H2MaxPercent = 0.9f;//95%
 
+        float BatteryMinPercent = 0.25f;//15%
+        float BatteryMaxPercent = 0.9f;//95%
+        //SETTINGS-END
 
-        IMyBlockGroup batteryGroup;
-        IMyBlockGroup reactorGroup;
-        IMyBlockGroup generatorGroup;
-
+        List<IMyBatteryBlock> batteryList = new List<IMyBatteryBlock>();
+        //List<IMyReactor> reactorList = new List<IMyReactor>();
+        List<IMyGasTank> h2TankList = new List<IMyGasTank>();
+        List<IMyPowerProducer> h2ReactorList = new List<IMyPowerProducer>();
+        List<IMyGasGenerator> gasGeneratorList = new List<IMyGasGenerator>();
 
         public Program()
         {
-            // The constructor, called only once every session and
-            // always before any other method is called. Use it to
-            // initialize your script. 
-            //     
-            // The constructor is optional and can be removed if not
-            // needed.
-            // 
-            // It's recommended to set Runtime.UpdateFrequency 
-            // here, which will allow your script to run itself without a 
-            // timer block.
+            IMyBlockGroup batteryGroup = GridTerminalSystem.GetBlockGroupWithName(BatteryGroupName) as IMyBlockGroup;
+            batteryGroup.GetBlocksOfType(batteryList);
 
-            batteryGroup = GridTerminalSystem.GetBlockGroupWithName(BatteryGroupName) as IMyBlockGroup;
-            reactorGroup = GridTerminalSystem.GetBlockGroupWithName(ReactorGroupName) as IMyBlockGroup;
-            generatorGroup = GridTerminalSystem.GetBlockGroupWithName(GeneratorGroupName) as IMyBlockGroup;
+            IMyBlockGroup h2TankGroup = GridTerminalSystem.GetBlockGroupWithName(h2TanksName) as IMyBlockGroup;
+            h2TankGroup.GetBlocksOfType(h2TankList);
+
+            //IMyBlockGroup reactorGroup = GridTerminalSystem.GetBlockGroupWithName(ReactorGroupName) as IMyBlockGroup;
+            //reactorGroup.GetBlocksOfType(reactorList);
+
+            IMyBlockGroup h2ReactorGroup = GridTerminalSystem.GetBlockGroupWithName(h2ReactorGroupName) as IMyBlockGroup;
+            h2ReactorGroup.GetBlocksOfType(h2ReactorList);
+
+            IMyBlockGroup gasGeneratorGroup = GridTerminalSystem.GetBlockGroupWithName(GasGeneratorGroupName) as IMyBlockGroup;
+            gasGeneratorGroup.GetBlocksOfType(gasGeneratorList);
         }
 
         public void Save()
         {
-            // Called when the program needs to save its state. Use
-            // this method to save your state to the Storage field
-            // or some other means. 
-            // 
-            // This method is optional and can be removed if not
-            // needed.
         }
 
         public void Main(string argument, UpdateType updateSource)
         {
-
-            // The main entry point of the script, invoked every time
-            // one of the programmable block's Run actions are invoked,
-            // or the script updates itself. The updateSource argument
-            // describes where the update came from. Be aware that the
-            // updateSource is a  bitfield  and might contain more than 
-            // one update type.
-            // 
-            // The method itself is required, but the arguments above
-            // can be removed if not needed.
-            List<IMyBatteryBlock> batteryList = new List<IMyBatteryBlock>();
-            batteryGroup.GetBlocksOfType(batteryList);
-
-            List<IMyReactor> reactorList = new List<IMyReactor>();
-            reactorGroup.GetBlocksOfType(reactorList);
-
-            List<IMyBatteryBlock> generatorList = new List<IMyBatteryBlock>();
-            generatorGroup.GetBlocksOfType(generatorList);
-
-            float current = this.getMinValue(batteryList);
-            if (current < MIN)
+            switch (argument.ToUpper())
             {
-                this.setReactorsStatus(true, reactorList);
-                this.setGeneratorsStatus(true, generatorList);
-                this.setBatteriesStatus(ChargeMode.Recharge, batteryList);
-            }
+                case "H2CHARGE":
+                    this.setGasGeneratorsStatus(true);
+                    break;
+                case "H2DISCHARGE":
+                    this.setGasGeneratorsStatus(true);
+                    break;
+                case "BATTERYCHARGE":
+                    this.charge(true);
+                    break;
+                case "BATTERYDISCHARGE":
+                    this.charge(false);
+                    break;
+                case "CHARGE":
+                    this.setGasGeneratorsStatus(true);
+                    this.charge(true);
+                    break;
+                case "DISCHARGE":
+                    this.setGasGeneratorsStatus(false);
+                    this.charge(false);
+                    break;
+                default:
+                    double currentH2 = this.getH2TanksMinValue();
+                    Echo("H2 állapot: " + (currentH2 * 100) + " %");
 
-            if (MAX <= current)
-            {
-                this.setReactorsStatus(true, reactorList);
-                this.setGeneratorsStatus(false, generatorList);
-                this.setBatteriesStatus(ChargeMode.Auto, batteryList);
-            }
+                    if (currentH2 < H2MinPercent)
+                    {
 
+                        this.setGasGeneratorsStatus(true);
+                    }
+
+                    if (H2MaxPercent <= currentH2)
+                    {
+
+                        this.setGasGeneratorsStatus(false);
+                    }
+
+                    float currentBatteries = this.getBatteriesMinValue();
+                    Echo("Akkumulátor állapot: " + currentBatteries + " %");
+                    if (currentBatteries < BatteryMinPercent)
+                    {
+                        this.charge(true);
+                    }
+
+                    if (BatteryMaxPercent <= currentBatteries)
+                    {
+                        this.charge(false);
+                    }
+                    break;
+            }
         }
 
-        private float getMinValue(List<IMyBatteryBlock> batteryList)
+        private void charge(bool chargeBattery)
         {
-            float minValue = 100.0f;
 
-            for (int i = 0; i < batteryList.Count; i++)
+            if (chargeBattery)
             {
-                IMyBatteryBlock battery = batteryList[i] as IMyBatteryBlock;
-                if (minValue > battery.CurrentStoredPower)
+                Echo("Töltés indítása...");
+                this.setBatteriesStatus(ChargeMode.Recharge);
+            } else
+            {
+                Echo("Töltés leállítása...");
+                this.setBatteriesStatus(ChargeMode.Auto);
+            }
+            //this.setReactorsStatus(chargeBattery);
+            this.setH2GeneratorsStatus(chargeBattery);
+        }
+
+        private double getH2TanksMinValue()
+        {
+
+            if (batteryList.Count < 1)
+            {
+                Echo("No battery found.");
+                return 0.0d;
+            }
+
+            IMyGasTank lowestH2Tank = h2TankList[0];
+
+            for (int i = 1; i < h2TankList.Count; i++)
+            {
+                IMyGasTank h2Tank = h2TankList[i] as IMyGasTank;
+                if (lowestH2Tank.FilledRatio > h2Tank.FilledRatio)
                 {
-                    minValue = battery.CurrentStoredPower;
+                    lowestH2Tank = h2Tank;
                 }
             }
 
-            return minValue;
+            Echo("Legkevesebb H2: " + lowestH2Tank.CustomName + "(" + lowestH2Tank.FilledRatio * 100 + " %)");
+
+            return lowestH2Tank.FilledRatio;
         }
 
-        private void setBatteriesStatus(ChargeMode chargeMode, List<IMyBatteryBlock> batteryList)
+        private float getBatteriesMinValue()
+        {
+
+            if (batteryList.Count < 1)
+            {
+                Echo("No battery found.");
+                return 0.0f;
+            }
+
+            IMyBatteryBlock lowestBattery = batteryList[0];
+
+            for (int i = 1; i < batteryList.Count; i++)
+            {
+                IMyBatteryBlock battery = batteryList[i] as IMyBatteryBlock;
+                if (this.getBatteryPercent(lowestBattery) > this.getBatteryPercent(battery))
+                {
+                    lowestBattery = battery;
+                }
+            }
+
+            Echo("Leggyengébb akku: " + lowestBattery.CustomName + "(" + this.getBatteryPercent(lowestBattery) * 100 + " %)");
+
+            return getBatteryPercent(lowestBattery);
+        }
+
+
+        private float getBatteryPercent(IMyBatteryBlock battery)
+        {
+            return battery.CurrentStoredPower / battery.MaxStoredPower;
+        }
+
+        private void setBatteriesStatus(ChargeMode chargeMode)
         {
             for (int i = 0; i < batteryList.Count; i++)
             {
                 IMyBatteryBlock battery = batteryList[i] as IMyBatteryBlock;
                 battery.ChargeMode = chargeMode;
+                Echo("Battery " + battery.CustomName + " set" + chargeMode);
             }
         }
-
-        private void setReactorsStatus(bool on, List<IMyReactor> reactorList)
+        /*
+        private void setReactorsStatus(bool on)
         {
             for (int i = 0; i < reactorList.Count; i++)
             {
                 IMyReactor reactor = reactorList[i] as IMyReactor;
-                reactor.Enabled = on;
+                Echo("Reactor " + reactor.CustomName);
+                if (on)
+                {
+                    reactor.ApplyAction("OnOff_On");
+                    Echo("Reactor " + reactor.CustomName + " set ON.");
+                }
+                else
+                {
+                    reactor.ApplyAction("OnOff_Off");
+                    Echo("Reactor " + reactor.CustomName + " set OFF.");
+                }
+
+            }
+        }
+        */
+        private void setH2GeneratorsStatus(bool on)
+        {
+            for (int i = 0; i < h2ReactorList.Count; i++)
+            {
+                IMyPowerProducer h2reactor = h2ReactorList[i] as IMyPowerProducer;
+                if (on)
+                {
+                    h2reactor.ApplyAction("OnOff_On");
+                    Echo("Reactor " + h2reactor.CustomName + " set ON.");
+                }
+                else
+                {
+                    h2reactor.ApplyAction("OnOff_Off");
+                    Echo("Reactor " + h2reactor.CustomName + " set OFF.");
+                }
+
             }
         }
 
-        private void setGeneratorsStatus(bool on, List<IMyBatteryBlock> reactorList)
+        private void setGasGeneratorsStatus(bool on)
         {
-            for (int i = 0; i < reactorList.Count; i++)
+            for (int i = 0; i < gasGeneratorList.Count; i++)
             {
-                IMyReactor reactor = reactorList[i] as IMyReactor;
-                reactor.Enabled = on;
+                IMyGasGenerator gasGenerator = gasGeneratorList[i] as IMyGasGenerator;
+                if (on)
+                {
+                    gasGenerator.ApplyAction("OnOff_On");
+                    Echo("GasGenerator " + gasGenerator.CustomName + " set ON.");
+                }
+                else
+                {
+                    gasGenerator.ApplyAction("OnOff_Off");
+                    Echo("GasGenerator " + gasGenerator.CustomName + " set OFF.");
+                }
             }
         }
     }
